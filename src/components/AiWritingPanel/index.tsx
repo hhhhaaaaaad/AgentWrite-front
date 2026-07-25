@@ -130,11 +130,18 @@ export default function AiWritingPanel({ draftId, content, title, getPromptParam
       const controller = await aiWritingApi.streamTask(
         taskId,
         (event: StreamEvent) => {
-          setCurrentPhase(event.phase);
+          setCurrentPhase((prevPhase) => {
+            // token 阶段切换时（如 generating -> reviewing）重置预览缓冲：
+            // 每个阶段都会输出一份完整文章，不重置会把多份拼接在一起造成重复
+            if (event.chunk.type === "token" && prevPhase && prevPhase !== event.phase) {
+              setAiResultBuffer("");
+            }
+            return event.phase;
+          });
           if (event.chunk.type === "status") setAiStatusMessage(event.chunk.content);
           if (event.chunk.type === "token") setAiResultBuffer((prev) => prev + event.chunk.content);
           if (event.chunk.type === "result") {
-            // result 是后端经过 formatMarkdown 规范化的终稿，用于采纳
+            // result 是后端经过 formatMarkdown 规范化的终稿，采纳时以它为准
             setAiFormattedResult(event.chunk.content);
             setAiResultBuffer(event.chunk.content);
           }
