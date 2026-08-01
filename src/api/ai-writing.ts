@@ -117,4 +117,11 @@ export const aiWritingApi = {
     });
     return handleResponse<AiTaskDetailResponse[]>(res);
   },
+
+  /** 获取用户所有模型配置（用于写作时的配置选择） */
+  listUserModelConfigs: async (): Promise<Response<Array<{ id: number; configName: string; modelName: string; isDefault: boolean }>>> => {
+    const res = await fetch(`${BASE}/model-config/list`, { credentials: 'include' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  },
 };

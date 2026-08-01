@@ -7,6 +7,13 @@ import WritingChatPanel from "@/components/WritingChatPanel";
 import { getUserInfo } from "@/utils/cookie";
 import type { AiTaskStatus, AiTaskType, AiTaskDetailResponse, StreamEvent } from "@/types/ai-writing";
 
+interface ModelConfigOption {
+  id: number;
+  configName: string;
+  modelName: string;
+  isDefault: boolean;
+}
+
 interface AiWritingPanelProps {
   draftId: number;
   content: string;
@@ -78,6 +85,8 @@ export default function AiWritingPanel({ draftId, content, title, getPromptParam
   const [customInstruction, setCustomInstruction] = useState("");
   const [enableIllustration, setEnableIllustration] = useState(false);
   const [showAux, setShowAux] = useState(false);
+  const [modelConfigs, setModelConfigs] = useState<ModelConfigOption[]>([]);
+  const [selectedModelConfigId, setSelectedModelConfigId] = useState<number | undefined>(undefined);
   const [aiTaskStatus, setAiTaskStatus] = useState<AiTaskStatus>("idle");
   const [currentTaskId, setCurrentTaskId] = useState<number | null>(null);
   const [currentTaskType, setCurrentTaskType] = useState<AiTaskType | null>(null);
@@ -106,6 +115,16 @@ export default function AiWritingPanel({ draftId, content, title, getPromptParam
     })();
   }, [draftId]);
 
+  // 加载用户模型配置列表
+  useEffect(() => {
+    (async () => {
+      try {
+        const resp = await aiWritingApi.listUserModelConfigs();
+        if (resp?.data) setModelConfigs(resp.data as ModelConfigOption[]);
+      } catch { /* ignore */ }
+    })();
+  }, [draftId]);
+
   const handleAiTask = useCallback(async (taskType: AiTaskType) => {
     if (aiTaskStatus === "pending" || aiTaskStatus === "streaming") return;
     setCurrentTaskType(taskType);
@@ -123,7 +142,13 @@ export default function AiWritingPanel({ draftId, content, title, getPromptParam
       "每个标题独占一行，标题后立刻换行再写正文，严禁标题和正文挤在同一行。标题文字不超过15字。";
 
     try {
-      const resp = await aiWritingApi.submitTask({ draftId, taskType, promptParams, enableIllustration });
+      const resp = await aiWritingApi.submitTask({
+        draftId,
+        taskType,
+        promptParams,
+        enableIllustration,
+        modelConfigId: selectedModelConfigId,
+      });
       const taskId = resp.data.taskId;
       setCurrentTaskId(taskId);
       setAiTaskStatus("streaming");
@@ -156,7 +181,7 @@ export default function AiWritingPanel({ draftId, content, title, getPromptParam
       setAiStatusMessage(e instanceof Error ? e.message : "提交 AI 任务失败");
       setAiTaskStatus("error");
     }
-  }, [draftId, customInstruction, aiTaskStatus, getPromptParams, enableIllustration]);
+  }, [draftId, customInstruction, aiTaskStatus, getPromptParams, enableIllustration, selectedModelConfigId]);
 
   const stopAiTask = useCallback(() => {
     streamControllerRef.current?.abort();
@@ -220,6 +245,24 @@ export default function AiWritingPanel({ draftId, content, title, getPromptParam
         />
         启用 AI 配图（自动识别正文配图需求并生成架构图/流程图/时序图）
       </label>
+
+      {modelConfigs.length > 0 && (
+        <div className="mt-2">
+          <label className="text-[10px] text-[#858c96]">模型配置</label>
+          <select
+            value={selectedModelConfigId ?? ""}
+            onChange={(e) => setSelectedModelConfigId(e.target.value ? Number(e.target.value) : undefined)}
+            className="mt-0.5 w-full rounded-[8px] border border-[#e6e2db] bg-white px-2 py-1.5 text-xs text-[#5d636c] outline-none"
+          >
+            <option value="">系统默认</option>
+            {modelConfigs.map((cfg) => (
+              <option key={cfg.id} value={cfg.id}>
+                {cfg.configName}（{cfg.modelName}）{cfg.isDefault ? " · 默认" : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div className="mt-2 space-y-2">{renderActionButtons(WRITING_ACTIONS)}</div>
 

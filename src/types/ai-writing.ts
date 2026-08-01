@@ -7,6 +7,8 @@ export interface SubmitAiTaskRequest {
   taskType: AiTaskType;
   promptParams?: Record<string, unknown>;
   enableIllustration?: boolean;
+  /** 可选：指定使用哪个模型配置，不传则用用户默认配置 */
+  modelConfigId?: number;
 }
 
 export interface SubmitAiTaskResponse {

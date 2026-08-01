@@ -155,10 +155,11 @@ export default function MePage() {
                 { key: 'favorites' as const, label: '我的收藏', count: favoritedArticles.length },
                 { key: 'following' as const, label: '我的关注', count: followTotal },
                 { key: 'followers' as const, label: '我的粉丝', count: followerTotal },
+                { key: 'settings' as const, label: '⚙ 模型配置', count: -1 },
               ]).map((tab) => (
                 <button
                   key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
+                  onClick={() => { if (tab.key === 'settings') { router.push('/settings'); } else { setActiveTab(tab.key); } }}
                   className={`w-full rounded-[10px] px-4 py-3 text-left text-sm font-medium transition-colors ${
                     activeTab === tab.key
                       ? 'bg-[#22252a] text-white'
@@ -166,9 +167,9 @@ export default function MePage() {
                   }`}
                 >
                   <span>{tab.label}</span>
-                  <span className={`ml-2 text-xs ${activeTab === tab.key ? 'text-white/60' : 'text-[#b9b2a8]'}`}>
+                  {tab.count >= 0 && (<span className={`ml-2 text-xs ${activeTab === tab.key ? 'text-white/60' : 'text-[#b9b2a8]'}`}>
                     {tab.count}
-                  </span>
+                  </span>)}
                 </button>
               ))}
             </aside>
