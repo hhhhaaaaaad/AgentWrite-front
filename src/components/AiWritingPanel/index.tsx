@@ -246,7 +246,7 @@ export default function AiWritingPanel({ draftId, content, title, getPromptParam
         启用 AI 配图（自动识别正文配图需求并生成架构图/流程图/时序图）
       </label>
 
-      {modelConfigs.length > 0 && (
+      {modelConfigs.length > 0 ? (
         <div className="mt-2">
           <label className="text-[10px] text-[#858c96]">模型配置</label>
           <select
@@ -262,6 +262,11 @@ export default function AiWritingPanel({ draftId, content, title, getPromptParam
             ))}
           </select>
         </div>
+      ) : (
+        <p className="mt-2 text-[10px] text-[#b9b2a8]">
+          使用系统默认模型 ·{" "}
+          <a href="/settings" className="text-[#567260] underline hover:text-[#4a6354]">配置自有 Key</a>
+        </p>
       )}
 
       <div className="mt-2 space-y-2">{renderActionButtons(WRITING_ACTIONS)}</div>
