@@ -2,8 +2,16 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { writingChatApi } from "@/api/writing-chat";
+import { aiWritingApi } from "@/api/ai-writing";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 import type { ChatMessage } from "@/types/writing-chat";
+
+interface ModelConfigOption {
+  id: number;
+  configName: string;
+  modelName: string;
+  isDefault: boolean;
+}
 
 interface WritingChatPanelProps {
   userId: number;
@@ -23,6 +31,8 @@ export default function WritingChatPanel({
   const [streaming, setStreaming] = useState(false);
   const [streamBuffer, setStreamBuffer] = useState("");
   const [saved, setSaved] = useState(false);
+  const [modelConfigs, setModelConfigs] = useState<ModelConfigOption[]>([]);
+  const [selectedModelConfigId, setSelectedModelConfigId] = useState<number | undefined>(undefined);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const controllerRef = useRef<AbortController | null>(null);
   const requestId = useRef(0);
@@ -58,6 +68,16 @@ export default function WritingChatPanel({
     })();
     return () => { controllerRef.current?.abort(); };
   }, [userId]);
+
+  // 加载用户模型配置列表
+  useEffect(() => {
+    (async () => {
+      try {
+        const resp = await aiWritingApi.listUserModelConfigs();
+        if (resp?.data) setModelConfigs(resp.data as ModelConfigOption[]);
+      } catch { /* ignore */ }
+    })();
+  }, []);
 
   // 自动滚动
   useEffect(() => {
@@ -206,6 +226,27 @@ export default function WritingChatPanel({
 
       {/* 输入区域 */}
       <div className="border-t border-[#e6e2db] p-3 space-y-2 shrink-0">
+        {modelConfigs.length > 0 ? (
+          <div>
+            <select
+              value={selectedModelConfigId ?? ""}
+              onChange={(e) => setSelectedModelConfigId(e.target.value ? Number(e.target.value) : undefined)}
+              className="w-full rounded-[8px] border border-[#e6e2db] bg-white px-2 py-1 text-[10px] text-[#858c96] outline-none"
+            >
+              <option value="">模型：系统默认</option>
+              {modelConfigs.map((cfg) => (
+                <option key={cfg.id} value={cfg.id}>
+                  {cfg.configName}（{cfg.modelName}）
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <p className="text-[10px] text-[#b9b2a8]">
+            系统默认模型 ·{" "}
+            <a href="/settings" className="text-[#567260] underline hover:text-[#4a6354]">配置自有 Key</a>
+          </p>
+        )}
         <textarea
           value={input} onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
