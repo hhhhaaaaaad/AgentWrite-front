@@ -96,6 +96,9 @@ export default function AiWritingPanel({ draftId, content, title, getPromptParam
   const [currentPhase, setCurrentPhase] = useState("");
   const [taskHistory, setTaskHistory] = useState<TaskCard[]>([]);
   const streamControllerRef = useRef<AbortController | null>(null);
+  const lastEventTimeRef = useRef<number>(0);
+  const timeoutCheckRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [timeoutWarning, setTimeoutWarning] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -152,9 +155,22 @@ export default function AiWritingPanel({ draftId, content, title, getPromptParam
       const taskId = resp.data.taskId;
       setCurrentTaskId(taskId);
       setAiTaskStatus("streaming");
+      setTimeoutWarning(false);
+      lastEventTimeRef.current = Date.now();
+
+      // 启动超时检测：3 分钟无新事件 → 显示恢复提示
+      if (timeoutCheckRef.current) clearInterval(timeoutCheckRef.current);
+      timeoutCheckRef.current = setInterval(() => {
+        if (Date.now() - lastEventTimeRef.current > 3 * 60 * 1000) {
+          setTimeoutWarning(true);
+        }
+      }, 10_000);
+
       const controller = await aiWritingApi.streamTask(
         taskId,
         (event: StreamEvent) => {
+          lastEventTimeRef.current = Date.now();
+          setTimeoutWarning(false);
           setCurrentPhase((prevPhase) => {
             // token 阶段切换时（如 generating -> reviewing）重置预览缓冲：
             // 每个阶段都会输出一份完整文章，不重置会把多份拼接在一起造成重复
@@ -173,8 +189,8 @@ export default function AiWritingPanel({ draftId, content, title, getPromptParam
           if (event.chunk.type === "done") { setAiStatusMessage("生成完成"); setAiTaskStatus("done"); }
           if (event.chunk.type === "error") { setAiStatusMessage(event.chunk.content || "生成失败"); setAiTaskStatus("error"); }
         },
-        (err) => { setAiStatusMessage(err.message || "生成失败"); setAiTaskStatus("error"); },
-        () => { setAiTaskStatus((prev) => (prev === "error" ? "error" : "done")); streamControllerRef.current = null; },
+        (err) => { setAiStatusMessage(err.message || "生成失败"); setAiTaskStatus("error"); if (timeoutCheckRef.current) clearInterval(timeoutCheckRef.current); },
+        () => { setAiTaskStatus((prev) => (prev === "error" ? "error" : "done")); streamControllerRef.current = null; if (timeoutCheckRef.current) clearInterval(timeoutCheckRef.current); },
       );
       streamControllerRef.current = controller;
     } catch (e: unknown) {
@@ -282,6 +298,11 @@ export default function AiWritingPanel({ draftId, content, title, getPromptParam
       )}
       {aiStatusMessage && (
         <p className={`mt-3 text-[11px] ${aiTaskStatus === "error" ? "text-red-500" : "text-[#858c96]"}`}>{aiStatusMessage}</p>
+      )}
+      {timeoutWarning && aiTaskStatus === "streaming" && (
+        <p className="mt-2 text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded-[8px] px-3 py-2">
+          ⚠ 超过 3 分钟未收到新事件，任务可能异常，系统正在恢复中...
+        </p>
       )}
 
       {aiResultBuffer && (
